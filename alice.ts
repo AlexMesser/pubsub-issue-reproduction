@@ -7,8 +7,6 @@ import {mplex} from "@libp2p/mplex"
 import {tcp} from "@libp2p/tcp"
 import {pubsubPeerDiscovery} from "@libp2p/pubsub-peer-discovery"
 import {multiaddr} from "@multiformats/multiaddr";
-import {webRTCStar} from "@libp2p/webrtc-star";
-import wrtc from "wrtc"
 
 async function start() {
   const peerId = {
@@ -17,23 +15,21 @@ async function start() {
       "CAESYI44p8HiCHtCBhuUcetU9XdIEtWvon15a5ZLsfyssSj9nn3mt4oZI0t6wXTHOvIA0GSFWrYkdKp1338oFIambdKefea3ihkjS3rBdMc68gDQZIVatiR0qnXffygUhqZt0g==",
     pubKey: "CAESIJ595reKGSNLesF0xzryANBkhVq2JHSqdd9/KBSGpm3S",
   }
-  const webRtcStar = webRTCStar({ wrtc })
   try {
     const libp2p = await createLibp2p({
       peerId: await createFromJSON(peerId),
       addresses: {
         listen: [
-          "/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star",
+          "/ip4/127.0.0.1/tcp/5001/p2p/12D3KooWNvSZnPi3RrhrTwEY4LuuBeB6K6facKUCJcyWG1aoDd2p/p2p-circuit",
         ],
       },
       pubsub: gossipsub({
         allowPublishToZeroPeers: true,
       }),
-      transports: [webRtcStar.transport, tcp(), webSockets()],
+      transports: [tcp(), webSockets()],
       connectionEncryption: [noise()],
       streamMuxers: [mplex()],
       peerDiscovery: [
-        webRtcStar.discovery,
         // @ts-ignore package has broken typings
         pubsubPeerDiscovery({
           interval: 1000,
@@ -75,17 +71,14 @@ async function start() {
     libp2p.pubsub.subscribe(topic)
 
     setInterval(async () => {
-      const topics = libp2p.pubsub.getTopics()
-      for (let topic of topics) {
-        const peers = libp2p.pubsub.getSubscribers(topic)
-        console.log({
-          topic,
-          peers: peers.map((it) => it.toString()),
-        })
-      }
+      const peers = libp2p.pubsub.getSubscribers(topic)
+      console.log({
+        topic,
+        peers: peers.map((it) => it.toString()),
+      })
       let res = undefined
       try {
-        res = await libp2p.ping(multiaddr("/dns4/wrtc-star1.par.dwebops.pub/tcp/443/wss/p2p-webrtc-star/p2p/12D3KooWFYyvJysHGbbYiruVY8bgjKn7sYN9axgbnMxrWVkGXABF"))
+        res = await libp2p.ping(multiaddr("/ip4/127.0.0.1/tcp/5001/p2p/12D3KooWNvSZnPi3RrhrTwEY4LuuBeB6K6facKUCJcyWG1aoDd2p/p2p-circuit/p2p/12D3KooWFYyvJysHGbbYiruVY8bgjKn7sYN9axgbnMxrWVkGXABF"))
       } catch (e) {}
       console.log("Ping:", res ? res : "unable to connect")
     }, 2000)

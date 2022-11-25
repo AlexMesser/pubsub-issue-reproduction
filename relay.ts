@@ -6,21 +6,20 @@ import {gossipsub} from "@chainsafe/libp2p-gossipsub"
 import {mplex} from "@libp2p/mplex"
 import {tcp} from "@libp2p/tcp"
 import {pubsubPeerDiscovery} from "@libp2p/pubsub-peer-discovery"
-import {multiaddr} from "@multiformats/multiaddr";
 
 async function start() {
   const peerId = {
-    id: "12D3KooWFYyvJysHGbbYiruVY8bgjKn7sYN9axgbnMxrWVkGXABF",
+    id: "12D3KooWNvSZnPi3RrhrTwEY4LuuBeB6K6facKUCJcyWG1aoDd2p",
     privKey:
-        "CAESYCtlyHA9SQ9F0yO6frmkrFFmboLCzGt8syr0ix8QkuTcVTVAp9JiBXb2xI1lzK6Fn2mRJUxtQIuuW+3V2mu3DZZVNUCn0mIFdvbEjWXMroWfaZElTG1Ai65b7dXaa7cNlg==",
-    pubKey: "CAESIFU1QKfSYgV29sSNZcyuhZ9pkSVMbUCLrlvt1dprtw2W",
+        "CAESYHyCgD+3HtEHm6kzPO6fuwP+BAr/PxfJKlvAOWhc/IqAwrZjCNn0jz93sSl81cP6R6x/g+iVYmR5Wxmn4ZtzJFnCtmMI2fSPP3exKXzVw/pHrH+D6JViZHlbGafhm3MkWQ==",
+    pubKey: "CAESIMK2YwjZ9I8/d7EpfNXD+kesf4PolWJkeVsZp+GbcyRZ",
   }
   try {
     const libp2p = await createLibp2p({
       peerId: await createFromJSON(peerId),
       addresses: {
         listen: [
-          "/ip4/127.0.0.1/tcp/5001/p2p/12D3KooWNvSZnPi3RrhrTwEY4LuuBeB6K6facKUCJcyWG1aoDd2p/p2p-circuit",
+          "/ip4/0.0.0.0/tcp/5001",
         ],
       },
       pubsub: gossipsub({
@@ -38,11 +37,20 @@ async function start() {
       relay: {
         // Circuit Relay options (this config is part of libp2p core configurations)
         enabled: true, // Allows you to dial and accept relayed connections. Does not make you a relay.
-        autoRelay: {
-          enabled: true,
-          maxListeners: 2,
+        hop: {
+          enabled: true, // Allows you to be a relay for other peers
+          active: true, // You will attempt to dial destination peers if you are not connected to them
         },
-      }
+        advertise: {
+          bootDelay: 15 * 60 * 1000, // Delay before HOP relay service is advertised on the network
+          enabled: true, // Allows you to disable the advertise of the Hop service
+          ttl: 30 * 60 * 1000, // Delay Between HOP relay service advertisements on the network
+        },
+        autoRelay: {
+          enabled: true, // Allows you to bind to relays with HOP enabled for improving node dialability
+          maxListeners: 2, // Configure maximum number of HOP relays to use
+        },
+      },
     })
 
     // Listen for new connections to peers
@@ -61,37 +69,10 @@ async function start() {
     console.log("----------------------------------------------")
     console.log("PeerId:", libp2p.peerId.toString())
     console.log(
-        "Listening on:",
-        libp2p.getMultiaddrs().map((it) => it.toString()),
+      "Listening on:",
+      libp2p.getMultiaddrs().map((it) => it.toString()),
     )
     console.log("----------------------------------------------")
-
-
-    const topic = "my_topic"
-    libp2p.pubsub.subscribe(topic)
-    libp2p.pubsub.addEventListener("message", (event) => {
-      if (event.detail.topic !== topic) return
-      console.log(
-          "Received pubsub message from:",
-          (event as any).detail.from.toString(),
-      )
-      console.log(">>", new TextDecoder().decode(event.detail.data))
-    })
-
-    setInterval(async () => {
-      const peers = libp2p.pubsub.getSubscribers(topic)
-      console.log({
-        topic,
-        peers: peers.map((it) => it.toString()),
-      })
-      let res = undefined
-      try {
-        res = await libp2p.ping(multiaddr("/ip4/127.0.0.1/tcp/5001/p2p/12D3KooWNvSZnPi3RrhrTwEY4LuuBeB6K6facKUCJcyWG1aoDd2p/p2p-circuit/p2p/12D3KooWLV3w42LqUb9MWE7oTzG7vwaFjPw9GvDqmsuDif5chTn9"))
-      } catch (e) {}
-      console.log("Ping:", res ? res : "unable to connect")
-    }, 2000)
-
-    return libp2p
   } catch (err) {
     console.error(err)
   }
